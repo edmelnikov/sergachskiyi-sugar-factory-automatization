@@ -97,30 +97,36 @@ def get_data_all(token, schema_id):  # на выходе - словарь с к�
     online_info_all_resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/GetOnlineInfoAll?session={}&schemaID={}'.format(token, schema_id))
     if online_info_all_resp:
         online_info_all = online_info_all_resp.json()
-        coords = dict()
+        data = dict()
         for key in online_info_all:
             if (online_info_all[key] != None):
                 if online_info_all[key]['LastPosition']['Lat'] != 0 and online_info_all[key]['LastPosition']['Lng'] != 0:
-                    coords[key] = online_info_all[key]['LastPosition']
+
+                    if 'FuelPercent' in online_info_all[key]['Final']:
+                        data[key] = online_info_all[key]['LastPosition']
+                        data[key]['FuelPercent'] = online_info_all[key]['Final']['FuelPercent']
+                        data[key]['Name'] = online_info_all[key]['Name']
+                    else:
+                        print('No fuel level for', key)
                 else:
                     print('No coordinates for', key)
             else:
                 print('No info about', key)
-        return coords
+        return data
     else:
         print('GetOnlineInfoAll error')
         return -1
 
 
-def add_data_to_kml(coordinates, filename):
+def add_data_to_kml(data, filename):
     kml = simplekml.Kml()
-    for key in coordinates:
+    for key in data:
         pnt = kml.newpoint()
-        pnt.name = key
-        pnt.description = 'There is supposed to be fuel level for ' + key
+        pnt.name = data[key]['Name'] + ' (' + str(round(data[key]['FuelPercent'])) + '%)'
+        pnt.description = 'ID: ' + key + '\n' + 'The fuel level is: ' + str(round(data[key]['FuelPercent'])) + '%'
         pnt.coords = [(
-            coordinates[key]['Lng'],
-            coordinates[key]['Lat']
+            data[key]['Lng'],
+            data[key]['Lat']
         )]
     kml.save(filename)
 
@@ -138,12 +144,15 @@ if token != -1:
     print('Sсhema name:', schemas[0]['Name'])
     devices_ids = get_devices_id(token, schema_id)
     print(devices_ids)
-    coords = get_data_all(token, schema_id)
-    #key = '12f35d7c-34e3-45f9-a25b-338925c839ad'
+    data = get_data_all(token, schema_id)
+    add_data_to_kml(data, 'Vehicles.kml')
+
+    #key = '061307a6-0d83-4697-b513-46bb18030a8e'
     #data = get_data_by_id(token, schema_id, key)
-    #print(data[key]['LastPosition'])
-    #coordinates = data[key]['LastPosition']
-    add_data_to_kml(coords, 'Vehicles.kml')
 
+    # coordinates = data[key]['LastPosition']
+    #data = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/GetProperties?session={}&schemaID={}&IDs={}'.format(token, schema_id, key)) # max fuel level
+    #print(data.json()[key])
 
-
+    #print(len(data))
+    #print(data[key]['Name'])
