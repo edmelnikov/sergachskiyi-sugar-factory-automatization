@@ -16,19 +16,25 @@
 		<h2>Testing</h2>
 		<div id="map" class="map"></div> <!-- container with the map -->
 		<script type="text/javascript">
+
 			var map = new ol.Map({
-				target: 'map',
-				layers: [
-					new ol.layer.Tile({
-						source: new ol.source.OSM()
-					}),
-						
-				],
-				view: new ol.View({
-				center: ol.proj.fromLonLat([37.41, 8.82]),
-				zoom: 4
-				})
-			});
+    			target: 'map',
+    			layers: [
+      				new ol.layer.Tile({
+        				source: new ol.source.OSM()
+      				}),
+      				new ol.layer.Vector({
+    			source: new ol.source.Vector({
+      				url: '../sergachskiyi-sugar-factory-automatization/vehicles_and_polygons.kml',
+      				format: new ol.format.KML()
+    			})
+  		})
+    			],
+   		 	view: new ol.View({
+				center: ol.proj.fromLonLat([45.41,55.45]),
+				zoom: 10
+			})
+		});
 		</script>
 	</body>
 </html>
