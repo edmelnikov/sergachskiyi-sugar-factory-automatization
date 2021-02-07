@@ -1,6 +1,7 @@
 import requests
 import json
 import simplekml
+import time
 
 
 def get_token(login, password):  # возвращает токен по логину и паролю
@@ -23,7 +24,7 @@ def get_schemas(token):  # возвращает id схемы
         return -1
 
 
-def get_devices_id(token, schema_id):  # возвращает список с id транспорта
+def get_device_ids(token, schema_id):  # возвращает список с id транспорта
     devices_resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/EnumDevices?session={}&schemaID={}'.format(
         token, schema_id))
     if devices_resp:
@@ -37,7 +38,7 @@ def get_devices_id(token, schema_id):  # возвращает список с id
         return -1
 
 
-def get_geofences_id(token, schema_id):  # возвращает список с id геозон
+def get_geofence_ids(token, schema_id):  # возвращает список с id геозон
     geofences_resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/EnumGeoFences?session={}&schemaID={}'.format(token, schema_id))
     if geofences_resp:
         geofences = geofences_resp.json()
@@ -196,7 +197,17 @@ def add_data_to_kml(vehicle_data, polygon_data, filename):  # рисует вс�
             boundaries.append((polygon_data[key]['Lng'][boundary_num], polygon_data[key]['Lat'][boundary_num]))
         pol.outerboundaryis = boundaries
         pol.name = polygon_data[key]['Name']
+        pol.style.polystyle.color = '80E8D300'
     kml.save(filename)
+
+
+def update(token, schema_id, devices_ids, geofence_ids, refresh_time):  # обновляет kml файл через заданные промежутки времени
+    flag = True
+    while flag:
+        vehicle_data = get_vehicle_data_all(token, schema_id)
+        geofence_data = get_geofence_data_all(token, schema_id, geofence_ids)
+        add_data_to_kml(vehicle_data, geofence_data, 'vehicles_and_polygons.kml')
+        time.sleep(refresh_time)
 
 
 # ------------------------------------------------------------------#
@@ -210,33 +221,9 @@ if token != -1:
     print('Token:', token)
     print('Schema ID:', schema_id)
     print('Sсhema name:', schemas[0]['Name'])
-    devices_ids = get_devices_id(token, schema_id)
+    devices_ids = get_device_ids(token, schema_id)
     print(devices_ids)
-    vehicle_data = get_vehicle_data_all(token, schema_id)
-    geofence_ids = get_geofences_id(token, schema_id)
+    geofence_ids = get_geofence_ids(token, schema_id)
     print(geofence_ids)
-    geofence_data = get_geofence_data_all(token, schema_id, geofence_ids)
-    add_data_to_kml(vehicle_data, geofence_data, 'vehicles_and_polygons.kml')
 
-
-    #key = '061307a6-0d83-4697-b513-46bb18030a8e'
-    #data = get_vehicle_data_by_id(token, schema_id, key)
-
-    # coordinates = data[key]['LastPosition']
-    #resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/EnumGeoFences?session={}&schemaID={}'.format(token, schema_id))
-    #resp = resp.json()
-    #key = '50f54a8f-1048-4c12-8dff-e7d47d714d10'
-    #resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/GetGeoFences?session={}&schemaID={}&IDs={}'.format(token, schema_id, key))
-    #resp = resp.json()
-    #print(resp)
-    #geofence_ids = get_geofences_id(token, schema_id)
-    #print(resp)
-    #print(len(data))
-    #print(data[key]['Name'])
-    #test = get_geofence_data_by_id(token, schema_id, key)
-    #print(test[key]['Name'])
-    #print(test[key]['Lat'])
-    #print(test[key]['Lng'])
-    #test = get_geofence_data_all(token, schema_id, geofence_ids)
-    #print(len(test['0b9bbf6c-3b20-44ea-b10f-c5877c444210']['Lat']))
-    #print(len(test['0b9bbf6c-3b20-44ea-b10f-c5877c444210']['Lng']))
+    update(token, schema_id, devices_ids, geofence_ids, 60)  # обновляем каждые 60 секунд

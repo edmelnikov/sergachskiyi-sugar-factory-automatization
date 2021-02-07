@@ -13,10 +13,9 @@
 		<title>Vehicles map</title>
 	</head>
 	<body>
-		<h2>Testing</h2>
+		<h2>OpenLayers map with vehicles and polygons</h2>
 		<div id="map" class="map"></div> <!-- container with the map -->
 		<script type="text/javascript">
-
 			var map = new ol.Map({
     			target: 'map',
     			layers: [
@@ -24,17 +23,18 @@
         				source: new ol.source.OSM()
       				}),
       				new ol.layer.Vector({
-    			source: new ol.source.Vector({
-      				url: '../sergachskiyi-sugar-factory-automatization/vehicles_and_polygons.kml',
-      				format: new ol.format.KML()
-    			})
-  		})
+						source: new ol.source.Vector({
+						url: 'vehicles_and_polygons.kml',
+						crossOrigin: null,
+						format: new ol.format.KML()
+						})
+					})
     			],
-   		 	view: new ol.View({
-				center: ol.proj.fromLonLat([45.41,55.45]),
-				zoom: 10
-			})
-		});
+				view: new ol.View({
+					center: ol.proj.fromLonLat([45.41,55.45]),
+					zoom: 10
+				})
+			});
 		</script>
 	</body>
 </html>
