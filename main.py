@@ -4,6 +4,24 @@ import simplekml
 import time
 
 
+class vehicle:
+    def __init__(self, id, lat, lng, name, fuel_level):
+        self.id = id
+        self.lat = lat
+        self.lng = lng
+        self.name = name
+        self.fuel_level = fuel_level
+        self.sensor_num = None  # ?
+
+
+class polygon:
+    def __init__(self, id, lat, lng, name):
+        self.id = id
+        self.name = name
+        self.lat = lat
+        self.lng = lng
+
+
 def get_token(login, password):  # возвращает токен по логину и паролю
     log_resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/Login?UserName={}&Password={}'.format(login, password))
     if log_resp:
@@ -62,9 +80,9 @@ def get_vehicle_data_by_id(token, schema_id, device_id):  # возвращает
         return -1
 
 
-def get_geofence_data_by_id(token, schema_id, device_id):  # возвращает все данные о определенной геозоне по id
+def get_geofence_data_by_id(token, schema_id, geofence_id):  # возвращает все данные о определенной геозоне по id
     geofence_resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/GetGeoFences?session={}&schemaID={}&IDs={}'.format(
-            token, schema_id, device_id))
+            token, schema_id, geofence_id))
     if geofence_resp:
         geofence_resp = geofence_resp.json()
         return geofence_resp
@@ -77,18 +95,17 @@ def get_geofence_data_all(token, schema_id, ids):  # возвращает коо
     max_req_size = 50  # максимальное количество id, которое подается на сервер при одном запросе
     req_size = 0
     ids_req_str = ''
-    geofence_data_par = dict()
+    polygons = list()
     for id in ids:
         if req_size == max_req_size - 1:
             ids_req_str += id + ','
-            geofence = get_geofence_data_by_id(token, schema_id, ids_req_str)
-            if geofence != -1:
+            geofences = get_geofence_data_by_id(token, schema_id, ids_req_str)
+            if geofences != -1:
                 print('Retrieved the following geofence ids (max {} per request): {}'.format(max_req_size, ids_req_str))
-                for key in geofence:
-                    geofence_data_par[key] = dict()
-                    geofence_data_par[key]['Lat'] = geofence[key]['Lat']
-                    geofence_data_par[key]['Lng'] = geofence[key]['Lng']
-                    geofence_data_par[key]['Name'] = geofence[key]['Name']
+                for geofence_id in geofences:
+                    pg = polygon(geofence_id, geofences[geofence_id]['Lat'], geofences[geofence_id]['Lng'],
+                                 geofences[geofence_id]['Name'])
+                    polygons.append(pg)
             ids_req_str = ''
             req_size = 0
         else:
@@ -96,16 +113,15 @@ def get_geofence_data_all(token, schema_id, ids):  # возвращает коо
             req_size += 1
 
     # для оставшихся
-    geofence = get_geofence_data_by_id(token, schema_id, ids_req_str)
-    if geofence != -1:
+    geofences = get_geofence_data_by_id(token, schema_id, ids_req_str)
+    if geofences != -1:
         print('Retrieved the following geofence ids (max {} per request): {}'.format(max_req_size, ids_req_str))
-        for key in geofence:
-            geofence_data_par[key] = dict()
-            geofence_data_par[key]['Lat'] = geofence[key]['Lat']
-            geofence_data_par[key]['Lng'] = geofence[key]['Lng']
-            geofence_data_par[key]['Name'] = geofence[key]['Name']
+        for geofence_id in geofences:
+            pg = polygon(geofence_id, geofences[geofence_id]['Lat'], geofences[geofence_id]['Lng'],
+                         geofences[geofence_id]['Name'])
+            polygons.append(pg)
 
-    return geofence_data_par
+    return polygons
 
 
 '''
@@ -160,43 +176,47 @@ def get_vehicle_data_all(token, schema_id):  # возвращает имя, ко
     online_info_all_resp = requests.get('http://cloud.ckat-nn.ru/ServiceJSON/GetOnlineInfoAll?session={}&schemaID={}'.format(token, schema_id))
     if online_info_all_resp:
         online_info_all = online_info_all_resp.json()
-        vehicle_data = dict()
-        for key in online_info_all:
-            if (online_info_all[key] != None):
-                if online_info_all[key]['LastPosition']['Lat'] != 0 and online_info_all[key]['LastPosition']['Lng'] != 0:
-                    if 'FuelPercent' in online_info_all[key]['Final']:
+        vehicles = list()
+        for vehicle_id in online_info_all:
+            if (online_info_all[vehicle_id] != None):
+                if online_info_all[vehicle_id]['LastPosition']['Lat'] != 0 and online_info_all[vehicle_id]['LastPosition']['Lng'] != 0:
+                    if 'FuelPercent' in online_info_all[vehicle_id]['Final']:
+                        vh = vehicle(vehicle_id, online_info_all[vehicle_id]['LastPosition']['Lat'],
+                                     online_info_all[vehicle_id]['LastPosition']['Lng'], online_info_all[vehicle_id]['Final']['ID_1C_f'],
+                                     online_info_all[vehicle_id]['Final']['FuelPercent'])
+                        vehicles.append(vh)
+                        '''
                         vehicle_data[key] = online_info_all[key]['LastPosition']
                         vehicle_data[key]['FuelPercent'] = online_info_all[key]['Final']['FuelPercent']
                         vehicle_data[key]['Name'] = online_info_all[key]['Name']
+                        print(online_info_all[key]['Final']['ID_1C_f'])
+                        '''
                     else:
-                        print('No fuel level for', key)
+                        print('No fuel level for', vehicle_id)
                 else:
-                    print('No coordinates for', key)
+                    print('No coordinates for', vehicle_id)
             else:
-                print('No info about', key)
-        return vehicle_data
+                print('No info about', vehicle_id)
+        return vehicles
     else:
         print('GetOnlineInfoAll error')
         return -1
 
 
-def add_data_to_kml(vehicle_data, polygon_data, filename):  # рисует всю технику и все геозоны на карте
+def add_data_to_kml(vehicles, polygons, filename):  # рисует всю технику и все геозоны на карте
     kml = simplekml.Kml()
-    for key in vehicle_data:
+    for vh in vehicles:
         pnt = kml.newpoint()
-        pnt.name = vehicle_data[key]['Name'] + ' (' + str(round(vehicle_data[key]['FuelPercent'])) + '%)'
-        pnt.description = 'ID: ' + key + '\n' + 'The fuel level is: ' + str(round(vehicle_data[key]['FuelPercent'])) + '%'
-        pnt.coords = [(
-            vehicle_data[key]['Lng'],
-            vehicle_data[key]['Lat']
-        )]
-    for key in polygon_data:
+        pnt.name = vh.name + ' (' + str(round(vh.fuel_level)) + '%)'
+        pnt.description = 'ID: ' + vh.id + '\n' + 'The fuel level is: ' + str(round(vh.fuel_level)) + '%'
+        pnt.coords = [(vh.lng, vh.lat)]
+    for pg in polygons:
         pol = kml.newpolygon()
         boundaries = []
-        for boundary_num in range(len(polygon_data[key]['Lat'])):
-            boundaries.append((polygon_data[key]['Lng'][boundary_num], polygon_data[key]['Lat'][boundary_num]))
+        for boundary_num in range(len(pg.lat)):
+            boundaries.append((pg.lng[boundary_num], pg.lat[boundary_num]))
         pol.outerboundaryis = boundaries
-        pol.name = polygon_data[key]['Name']
+        pol.name = pg.name
         pol.style.polystyle.color = '80E8D300'
     kml.save(filename)
 
@@ -216,6 +236,7 @@ password = '912912913'
 # token = GetToken(login, password)
 token = '49FE5BA414AD84FACBD27EAA845EA440B7638E634CD265C09FAFB45B1121D06A'
 if token != -1:
+
     schemas = get_schemas(token)
     schema_id = schemas[0]['ID']
     print('Token:', token)
@@ -227,3 +248,4 @@ if token != -1:
     print(geofence_ids)
 
     update(token, schema_id, devices_ids, geofence_ids, 60)  # обновляем каждые 60 секунд
+    
