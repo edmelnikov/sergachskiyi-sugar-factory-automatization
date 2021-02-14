@@ -2,6 +2,8 @@ import requests
 import json
 import simplekml
 import time
+import ftplib
+
 
 
 class vehicle:
@@ -221,12 +223,17 @@ def add_data_to_kml(vehicles, polygons, filename):  # рисует всю тех
     kml.save(filename)
 
 
-def update(token, schema_id, devices_ids, geofence_ids, refresh_time):  # обновляет kml файл через заданные промежутки времени
+def update(token, schema_id, devices_ids, geofence_ids, refresh_time):  # обновляет kml файл на сервере по ftp через заданные промежутки времени
     flag = True
     while flag:
         vehicle_data = get_vehicle_data_all(token, schema_id)
         geofence_data = get_geofence_data_all(token, schema_id, geofence_ids)
         add_data_to_kml(vehicle_data, geofence_data, 'vehicles_and_polygons.kml')
+        session = ftplib.FTP('sergachkmlftp.s3.eu-central-1.amazon.com','user','pass')
+        file = open('vehicles_and_polygons.kml','rb')
+        session.storbinary('STOR vehicles_and_polygons.kml', file)
+        file.close()
+        session.quit()
         time.sleep(refresh_time)
 
 
@@ -248,4 +255,3 @@ if token != -1:
     print(geofence_ids)
 
     update(token, schema_id, devices_ids, geofence_ids, 60)  # обновляем каждые 60 секунд
-    
